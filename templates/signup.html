@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Create an account for the AI Predictive Financial Distress Modeler. Start managing cash flow forecasts today.">
+    <title>Sign Up - Predict Financial Distress Modeler AI</title>
+    
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Custom Theme -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .password-wrapper {
+            position: relative;
+        }
+        .password-wrapper input {
+            padding-right: 3rem;
+        }
+        .eye-toggle {
+            position: absolute;
+            right: 0.75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1.2rem;
+            line-height: 1;
+            padding: 0.25rem;
+            opacity: 0.5;
+            transition: opacity 0.2s;
+        }
+        .eye-toggle:hover {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="login-container">
+        
+        <div class="logo-header" style="display: flex; flex-direction: row; align-items: center; justify-content: center; margin-bottom: 2rem; gap: 0;">
+            <img src="{{ url_for('static', filename='images/logo.png') }}" class="logo-icon-img" alt="Logo" style="height: 50px; width: 50px; margin-right: 15px; border-radius: 8px; object-fit: cover;">
+            <h1 class="logo-text" style="margin: 0;">Predict Financial <span>Distress Modeler AI</span></h1>
+        </div>
+
+        <!-- Glassmorphic Sign Up Card -->
+        <div class="glass-card">
+            
+            <!-- Message alerts -->
+            <div class="message-box" id="message-box"></div>
+
+            <h2>Create Account</h2>
+            <p class="subtitle">Sign up to securely save your company data and predictions.</p>
+            <form id="register-form" onsubmit="handleAuthSubmit(event, '/register', 'register-form')">
+                <div class="form-group">
+                    <label for="register-username">Username</label>
+                    <input type="text" id="register-username" name="username" required placeholder="Choose a username" autocomplete="username">
+                </div>
+                <div class="form-group">
+                    <label for="register-password">Password (min 6 chars)</label>
+                    <div class="password-wrapper">
+                        <input type="password" id="register-password" name="password" minlength="6" required placeholder="••••••••" autocomplete="new-password">
+                        <button type="button" class="eye-toggle" onclick="togglePassword('register-password', this)" title="Show/Hide Password">👁️‍🗨️</button>
+                    </div>
+                </div>
+                <div class="form-group" style="margin-bottom: 1.5rem;">
+                    <label for="confirm-password">Confirm Password</label>
+                    <div class="password-wrapper">
+                        <input type="password" id="confirm-password" minlength="6" required placeholder="••••••••" autocomplete="new-password">
+                        <button type="button" class="eye-toggle" onclick="togglePassword('confirm-password', this)" title="Show/Hide Password">👁️‍🗨️</button>
+                    </div>
+                </div>
+                <button class="btn" type="submit" id="register-btn">Create Account</button>
+            </form>
+            <p class="toggle-text">
+                Already have an account? <a href="/login">Sign In instead</a>
+            </p>
+
+        </div>
+
+    </div>
+
+    <script>
+        function togglePassword(inputId, btn) {
+            const input = document.getElementById(inputId);
+            if (input.type === 'password') {
+                input.type = 'text';
+                btn.textContent = '🙈';
+                btn.title = 'Hide Password';
+            } else {
+                input.type = 'password';
+                btn.textContent = '👁️‍🗨️';
+                btn.title = 'Show Password';
+            }
+        }
+
+        function handleAuthSubmit(event, url, formId) {
+            event.preventDefault();
+            const form = document.getElementById(formId);
+            const msgBox = document.getElementById('message-box');
+            
+            // Confirm password check
+            const pass = document.getElementById('register-password').value;
+            const confirmPass = document.getElementById('confirm-password').value;
+            if (pass !== confirmPass) {
+                msgBox.className = 'message-box message-error';
+                msgBox.innerText = 'Passwords do not match.';
+                msgBox.style.display = 'block';
+                return;
+            }
+            
+            const formData = new FormData(form);
+            
+            const btn = form.querySelector('button[type="submit"]');
+            const originalText = btn.innerText;
+            btn.disabled = true;
+            btn.innerText = 'Processing...';
+
+            fetch(url, {
+                method: 'POST',
+                body: new URLSearchParams(formData),
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                }
+            })
+            .then(res => {
+                if (!res.ok) {
+                    return res.json().then(data => { throw new Error(data.error || 'Registration failed'); });
+                }
+                return res.json();
+            })
+            .then(data => {
+                msgBox.className = 'message-box message-success';
+                msgBox.innerText = data.success || 'Account created!';
+                msgBox.style.display = 'block';
+                
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 800);
+            })
+            .catch(err => {
+                msgBox.className = 'message-box message-error';
+                msgBox.innerText = err.message;
+                msgBox.style.display = 'block';
+                
+                btn.disabled = false;
+                btn.innerText = originalText;
+            });
+        }
+    </script>
+</body>
+</html>

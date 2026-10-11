@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Portal - Financial Distress Modeler</title>
+    
+    <!-- Google Fonts: Cinzel & Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800;900&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-gradient: linear-gradient(135deg, #070a13 0%, #010204 100%);
+            --card-bg: rgba(13, 20, 38, 0.55);
+            --card-border: rgba(212, 175, 55, 0.15);
+            --text-primary: #fcfaf2;
+            --text-secondary: #a4abb7;
+            --accent-primary: linear-gradient(135deg, #e5c158 0%, #b28514 100%);
+            --accent-glow: rgba(212, 175, 55, 0.35);
+            
+            --font-family: 'Outfit', sans-serif;
+            --font-title: 'Cinzel', serif;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: var(--font-family);
+            background: var(--bg-gradient);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            padding: 1.25rem 2rem;
+            background: rgba(7, 10, 19, 0.75);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--card-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo-text {
+            font-family: var(--font-title);
+            font-weight: 700;
+            font-size: 1.3rem;
+        }
+        .logo-text span {
+            background: linear-gradient(135deg, #ffe082 0%, #d4af37 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .btn {
+            background: var(--accent-primary);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #1e1b12;
+            padding: 0.65rem 1.3rem;
+            border-radius: 0.5rem;
+            font-weight: 700;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 12px var(--accent-glow);
+            text-transform: uppercase;
+            text-decoration: none;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 18px rgba(212, 175, 55, 0.55);
+        }
+        .btn-secondary {
+            background: transparent;
+            border: 1px solid rgba(212, 175, 55, 0.3);
+            color: #ffe082;
+            box-shadow: none;
+        }
+
+        main {
+            padding: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .glass-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 1rem;
+            padding: 1.75rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(12px);
+            margin-bottom: 2rem;
+        }
+        .glass-card h2 {
+            font-family: var(--font-title);
+            font-size: 1.25rem;
+            margin-bottom: 1rem;
+            color: #ebdcb9;
+            border-bottom: 1px solid rgba(212, 175, 55, 0.15);
+            padding-bottom: 0.5rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+        th, td {
+            padding: 0.85rem;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        th {
+            color: var(--text-secondary);
+            font-weight: 600;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        tr:hover { background: rgba(255, 255, 255, 0.02); }
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <div style="display: flex; align-items: center; gap: 1rem;">
+            <a href="/" class="btn btn-secondary" style="padding: 0.5rem 1rem;">&larr; Back</a>
+            <div class="logo-text">Admin <span>Portal</span></div>
+        </div>
+        <div style="display: flex; gap: 1rem; align-items: center;">
+            <span style="color: var(--text-secondary); font-size: 0.9rem;">Logged in as {{ username }}</span>
+        </div>
+    </header>
+
+    <main>
+        <div class="glass-card">
+            <h2>All Users</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Username</th>
+                        <th>Role</th>
+                    </tr>
+                </thead>
+                <tbody id="users-table">
+                    <!-- Populated via JS -->
+                </tbody>
+            </table>
+        </div>
+
+        <div class="glass-card">
+            <h2>All Companies (Global)</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Company ID</th>
+                        <th>Company Name</th>
+                        <th>Owner Username</th>
+                        <th>Currency</th>
+                        <th>Latest AI Status</th>
+                        <th>Latest Score</th>
+                        <th>Calculated On</th>
+                        <th>Web Data (Hidden)</th>
+                    </tr>
+                </thead>
+                <tbody id="companies-table">
+                    <!-- Populated via JS -->
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            loadUsers();
+            loadCompanies();
+        });
+
+        function loadUsers() {
+            fetch('/api/admin/users')
+            .then(res => res.json())
+            .then(users => {
+                const tbody = document.getElementById('users-table');
+                tbody.innerHTML = '';
+                users.forEach(u => {
+                    const role = u.is_admin ? '<span style="color: #ffe082; font-weight: 600;">Admin</span>' : 'User';
+                    tbody.innerHTML += `
+                        <tr>
+                            <td style="color: var(--text-secondary);">${u.id}</td>
+                            <td style="font-weight: 500;">${u.username}</td>
+                            <td>${role}</td>
+                        </tr>
+                    `;
+                });
+            })
+            .catch(err => console.error(err));
+        }
+
+        function loadCompanies() {
+            fetch('/api/admin/companies')
+            .then(res => res.json())
+            .then(companies => {
+                const tbody = document.getElementById('companies-table');
+                tbody.innerHTML = '';
+                if(companies.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color: var(--text-secondary);">No companies found in database.</td></tr>';
+                    return;
+                }
+                companies.forEach(c => {
+                    let statusColor = 'var(--text-secondary)';
+                    if (c.last_distress_status === 'Safe') statusColor = 'var(--color-stable)';
+                    if (c.last_distress_status === 'Warning') statusColor = 'var(--color-warning)';
+                    if (c.last_distress_status === 'Critical') statusColor = 'var(--color-critical)';
+
+                    const statusStr = c.last_distress_status ? `<span style="color: ${statusColor}; font-weight: 600;">${c.last_distress_status}</span>` : '<span style="color: var(--text-secondary);">Not Calculated</span>';
+                    const scoreStr = c.last_distress_score != null ? `${c.last_distress_score.toFixed(1)}%` : '-';
+                    const dateStr = c.last_calculated_date ? new Date(c.last_calculated_date).toLocaleString() : '-';
+                    
+                    const webSummary = c.web_summary ? c.web_summary : 'None';
+                    const webTrend = c.web_stock_trend ? c.web_stock_trend : 'None';
+                    const webDataStr = c.web_summary ? 
+                        `<div style="font-size: 0.75rem; color: #a1a1aa; max-width: 200px; white-space: normal;">
+                            <strong>Trend:</strong> ${webTrend}<br>
+                            <strong>Summary:</strong> ${webSummary}
+                         </div>` : 
+                        '<span style="color: var(--text-secondary); font-size: 0.75rem;">No Web Data</span>';
+
+                    tbody.innerHTML += `
+                        <tr>
+                            <td style="color: var(--text-secondary);">${c.id}</td>
+                            <td style="font-weight: 500;">${c.name}</td>
+                            <td>${c.owner_username}</td>
+                            <td style="color: var(--text-secondary);">${c.currency}</td>
+                            <td>${statusStr}</td>
+                            <td style="font-weight: 500;">${scoreStr}</td>
+                            <td style="color: var(--text-secondary); font-size: 0.8rem;">${dateStr}</td>
+                            <td>${webDataStr}</td>
+                        </tr>
+                    `;
+                });
+            })
+            .catch(err => console.error(err));
+        }
+    </script>
+</body>
+</html>

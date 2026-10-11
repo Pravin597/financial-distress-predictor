@@ -1,0 +1,14 @@
+pandas
+numpy
+tensorflow
+scikit-learn
+matplotlib
+seaborn
+flask
+yfinance
+requests
+wikipedia
+beautifulsoup4
+textblob
+openpyxl
+pdfplumber

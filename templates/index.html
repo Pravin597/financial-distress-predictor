@@ -1,0 +1,1739 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Predictive Financial Distress Modeler. Database CRUD management & AI forecasting.">
+    <title>Predict Financial Distress Modeler AI</title>
+    
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Plotly.js for charts -->
+    <script src="https://cdn.plot.ly/plotly-2.25.2.min.js"></script>
+    
+    <!-- html2pdf.js for exporting dashboard as PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <!-- Custom Theme -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    
+    
+</head>
+<body>
+
+    <!-- Setup Wizard Modal -->
+    <div class="modal" id="wizard-modal">
+        <div class="modal-content">
+            <h2 style="margin-bottom: 0.5rem; font-size: 1.4rem;"> Setup Portfolio Wizard</h2>
+            <p style="font-size: 0.85rem; margin-bottom: 1.5rem;">Configure the data profile for your newly registered company.</p>
+            
+            <input type="hidden" id="wizard-company-id">
+            
+            <div class="form-group" style="margin-bottom: 1.25rem;">
+                <label for="wizard-currency" style="font-size: 0.8rem; font-weight: 600;">Select Currency Symbol</label>
+                <select id="wizard-currency" style="width: 100%; padding: 0.55rem; border-radius: 0.5rem; outline: none; cursor: pointer;">
+                    <option value="$">USD ($)</option>
+                    <option value="€">EUR (€)</option>
+                    <option value="£">GBP (£)</option>
+                    <option value="₹">INR (₹)</option>
+                    <option value="¥">JPY (¥)</option>
+                </select>
+            </div>
+            
+            <div class="form-group" style="margin-bottom: 1.25rem;">
+                <label style="font-size: 0.8rem; font-weight: 600;">How many years of financial data do you plan to input?</label>
+                <select id="wizard-years">
+                    <option value="1">1 Year (12 Months)</option>
+                    <option value="2">2 Years (24 Months)</option>
+                    <option value="3" selected>3 Years (36 Months)</option>
+                    <option value="4">4 Years (48 Months)</option>
+                </select>
+            </div>
+
+    <!-- Rename Company Modal -->
+    <!-- Rename modal removed for inline editing -->
+            
+            <div class="form-group" style="margin-bottom: 1.25rem;">
+                <label id="wizard-profit-label" style="font-size: 0.8rem; font-weight: 600;">Total annual target profit ($)</label>
+                <input type="number" id="wizard-profit" value="150000" placeholder="e.g. 150000">
+            </div>
+
+            <div class="form-group" style="margin-bottom: 2rem;">
+                <label id="wizard-loans-label" style="font-size: 0.8rem; font-weight: 600;">Total outstanding loans to be covered ($)</label>
+                <input type="number" id="wizard-loans" value="60000" placeholder="e.g. 60000">
+            </div>
+
+            <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+                <button class="btn btn-secondary" onclick="closeWizard(false)">Skip Wizard</button>
+                <button class="btn" onclick="submitWizard()">Seed Data placeholders</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide-Out Menu Overlay -->
+    <div id="menu-overlay" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 999; backdrop-filter: blur(2px); transition: opacity 0.3s;" onclick="closeMenu()"></div>
+
+    <!-- Slide-Out Sidebar Menu -->
+    <nav id="sidebar-menu" style="position: fixed; top: 0; left: -320px; width: 300px; height: 100vh; z-index: 1000; padding: 0; transition: left 0.35s cubic-bezier(0.4, 0, 0.2, 1); display: flex; flex-direction: column; background: var(--card-bg, #1a1a2e); border-right: 1px solid rgba(212,175,55,0.15); box-shadow: 4px 0 24px rgba(0,0,0,0.4); color: #ffffff;">
+        
+        <!-- Menu Header -->
+        <div style="padding: 1.5rem 1.25rem; border-bottom: 1px solid rgba(212,175,55,0.12); display: flex; align-items: center; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 0.65rem;">
+                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo" style="height: 32px; width: 32px; border-radius: 6px; object-fit: cover;">
+                <span style="font-weight: 700; font-size: 0.95rem;">Menu</span>
+            </div>
+            <button onclick="closeMenu()" style="background: none; border: none; cursor: pointer; font-size: 1.3rem; opacity: 0.6; transition: opacity 0.2s; color: #ffffff;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.6'">✕</button>
+        </div>
+
+        <!-- Menu Items -->
+        <div style="flex: 1; padding: 1rem 0; overflow-y: auto;">
+            
+            <button id="menu-step1" onclick="menuGoToStep1()" style="width: 100%; padding: 0.85rem 1.25rem; background: none; border: none; cursor: pointer; display: flex; align-items: center; gap: 0.75rem; font-size: 0.9rem; font-family: inherit; text-align: left; border-left: 3px solid transparent; transition: all 0.2s; color: #ffffff;" onmouseover="this.style.background='rgba(212,175,55,0.08)'" onmouseout="this.style.background='none'">
+                <div>
+                    <div style="font-weight: 600;">Details & Financial Data</div>
+                    <div style="font-size: 0.75rem; opacity: 0.55; margin-top: 2px;">Manage companies, records & uploads</div>
+                </div>
+            </button>
+
+            <button id="menu-step2" onclick="menuGoToStep2()" style="width: 100%; padding: 0.85rem 1.25rem; background: none; border: none; cursor: pointer; display: flex; align-items: center; gap: 0.75rem; font-size: 0.9rem; font-family: inherit; text-align: left; border-left: 3px solid transparent; transition: all 0.2s; color: #ffffff;" onmouseover="this.style.background='rgba(212,175,55,0.08)'" onmouseout="this.style.background='none'">
+                <div>
+                    <div style="font-weight: 600;">AI Distress Report</div>
+                    <div style="font-size: 0.75rem; opacity: 0.55; margin-top: 2px;">Forecasts, charts & conclusions</div>
+                </div>
+            </button>
+
+            <div style="margin: 0.75rem 1.25rem; border-top: 1px solid rgba(212,175,55,0.1);"></div>
+
+            <button onclick="downloadSampleCSV()" style="width: 100%; padding: 0.85rem 1.25rem; background: none; border: none; cursor: pointer; display: flex; align-items: center; gap: 0.75rem; font-size: 0.9rem; font-family: inherit; text-align: left; transition: all 0.2s; color: #ffffff;" onmouseover="this.style.background='rgba(212,175,55,0.08)'" onmouseout="this.style.background='none'">
+                <div style="font-weight: 500;">Download CSV Template</div>
+            </button>
+
+            {% if is_admin %}
+            <a href="/admin" style="width: 100%; padding: 0.85rem 1.25rem; display: flex; align-items: center; gap: 0.75rem; font-size: 0.9rem; text-decoration: none; transition: all 0.2s; color: #ffffff;" onmouseover="this.style.background='rgba(212,175,55,0.08)'" onmouseout="this.style.background='none'">
+                <div style="font-weight: 500;">Admin Portal</div>
+            </a>
+            {% endif %}
+        </div>
+
+        <!-- Menu Footer -->
+        <div style="padding: 1rem 1.25rem; border-top: 1px solid rgba(212,175,55,0.12);">
+            <div style="font-size: 0.8rem; opacity: 0.5; margin-bottom: 0.65rem;">Signed in as <strong>{{ username }}</strong></div>
+            <a href="/logout" style="display: flex; align-items: center; justify-content: center; padding: 0.6rem 0.75rem; border-radius: 0.5rem; text-decoration: none; font-size: 0.85rem; font-weight: 600; color: #ef4444; background: rgba(239,68,68,0.08); transition: background 0.2s;" onmouseover="this.style.background='rgba(239,68,68,0.15)'" onmouseout="this.style.background='rgba(239,68,68,0.08)'">
+                Logout
+            </a>
+        </div>
+    </nav>
+
+    <header>
+        <div class="logo-container" style="display: flex; align-items: center; gap: 15px; margin: 0; padding: 0;">
+            <img src="{{ url_for('static', filename='images/logo.png') }}?v=2" class="logo-icon-img" alt="Logo" style="height: 45px; width: 45px; border-radius: 8px; object-fit: cover;">
+            <h1 class="logo-text" style="margin: 0; line-height: 1;">Predict Financial <span>Distress Modeler AI</span></h1>
+        </div>
+        
+        <div class="user-panel">
+            <span class="username"> {{ username }}</span>
+            {% if is_admin %}
+            <a href="/admin" class="btn btn-secondary" style="text-decoration: none;">Admin Portal</a>
+            {% endif %}
+            <a href="/logout" class="btn btn-danger" style="text-decoration: none;">Logout </a>
+        </div>
+    </header>
+
+    <!-- Hamburger Menu Button (Under Title Field, shifted slightly left) -->
+    <button id="hamburger-btn" onclick="openMenu()" style="position: fixed; top: 90px; left: 32px; z-index: 998; background: var(--card-bg, #1a1a2e); border: 1px solid rgba(212,175,55,0.25); border-radius: 0.35rem; cursor: pointer; padding: 0.35rem 0.6rem; display: flex; align-items: center; gap: 8px; transition: all 0.25s; box-shadow: 0 2px 12px rgba(0,0,0,0.3);" onmouseover="this.style.borderColor='rgba(212,175,55,0.6)'; this.style.background='rgba(212,175,55,0.12)'; this.style.transform='scale(1.02)'" onmouseout="this.style.borderColor='rgba(212,175,55,0.25)'; this.style.background='var(--card-bg, #1a1a2e)'; this.style.transform='scale(1)'">
+        <div style="display: flex; flex-direction: column; gap: 3px;">
+            <span style="display: block; width: 14px; height: 2px; background: var(--gold, #d4af37); border-radius: 2px;"></span>
+            <span style="display: block; width: 14px; height: 2px; background: var(--gold, #d4af37); border-radius: 2px;"></span>
+            <span style="display: block; width: 14px; height: 2px; background: var(--gold, #d4af37); border-radius: 2px;"></span>
+        </div>
+        <span style="font-size: 0.75rem; color: #fff; font-weight: 500; letter-spacing: 0.05em;">MENU</span>
+    </button>
+
+    <!-- Workflow Progress Bar (hidden - navigation moved to sidebar menu) -->
+    <div class="workflow-indicator" style="display: none;">
+        <div class="workflow-step active" id="indicator-step1"></div>
+        <div class="workflow-line" id="workflow-line-1"></div>
+        <div class="workflow-step" id="indicator-step2"></div>
+    </div>
+
+    <main>
+        
+        <!-- ================= STEP 1: GREETING & DATA INPUT ================= -->
+        <div id="step1-view" class="step-view active">
+            <!-- Welcome greeting by username -->
+            <div class="welcome-banner" style="margin-bottom: 2rem; border-radius: 1rem; padding: 1.5rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap;">
+                <div>
+                    <h2 style="margin: 0; font-size: 1.6rem; padding-bottom: 0;">Hello, <span >{{ username }}</span>! </h2>
+                    <p style="font-size: 0.9rem; margin-top: 0.25rem;">Configure your company's profile and populate the monthly financials below.</p>
+                </div>
+            </div>
+
+            <div class="db-layout">
+                
+                <!-- Left Sidebar: Companies list & CA Sheet -->
+                <div class="sidebar">
+                    <div class="glass-card">
+                        <h2> Manage Companies</h2>
+                        
+                        <!-- Add Company Form -->
+                        <div style="margin-bottom: 1.5rem;">
+                            <label style="font-size: 0.8rem; margin-bottom: 0.4rem; display: block;">Add New Company:</label>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <input type="text" id="new-comp-name" placeholder="Company Name">
+                                <button class="btn" onclick="addCompany()">Add</button>
+                            </div>
+
+
+                        </div>
+
+                        <!-- Company List Table/Container -->
+                        <label style="font-size: 0.8rem; margin-bottom: 0.4rem; display: block;">Company List:</label>
+                        <div class="table-responsive" style="max-height: 250px; margin-top: 0;">
+                            <table id="company-table">
+                                <tbody>
+                                    <!-- Populated via JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+
+                    
+                    <!-- CA Sheet Editor Sidebar block -->
+                    <div class="glass-card" id="ca-sheet-editor-card" style="display: none;">
+                        <h2> CA Audit Sheet</h2>
+                        <div style="display: flex; flex-direction: column; gap: 0.85rem;">
+                            <label style="font-size: 0.8rem;">CA Audit remarks and financial notes:</label>
+                            <textarea id="ca-sheet-textarea" rows="8" placeholder="Audit remarks... (e.g. Target profit $150k. Outstanding debts total $60k to be amortized. Verified by CA Jane Doe.)" {% if not is_admin %}readonly style="background-color: var(--bg-main); opacity: 0.8; cursor: not-allowed;"{% endif %}></textarea>
+                            {% if is_admin %}
+                            <button class="btn" style="width: 100%;" onclick="saveCASheet()"> Save CA Notes</button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Area: Financial Records CRUD Table -->
+                <div style="display: flex; flex-direction: column; gap: 2rem;">
+                    
+                    <!-- Records Card -->
+                    <div class="glass-card db-table-card">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+                            <h2 style="margin: 0; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;"> Financial Records for: <span id="selected-comp-title" >--</span></h2>
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <label for="currency-select" style="font-size: 0.85rem; font-weight: 600;">Currency:</label>
+                                <select id="currency-select" onchange="changeCurrency(this.value)" style="padding: 0.4rem 0.8rem; border-radius: 0.5rem; font-weight: 500; cursor: pointer; outline: none; transition: border-color 0.2s;">
+                                    <option value="$">USD ($)</option>
+                                    <option value="€">EUR (€)</option>
+                                    <option value="£">GBP (£)</option>
+                                    <option value="₹">INR (₹)</option>
+                                    <option value="¥">JPY (¥)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Bulk Upload Form -->
+                        <div id="bulk-upload-section" style="display: none; background: var(--bg-hover); padding: 1rem; border-radius: 0.5rem; margin-bottom: 1.5rem; border: 1px dashed var(--border-color);">
+                            <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+                                <input type="file" id="bulk-file-input" accept=".csv, .xlsx, .pdf" style="font-size: 0.85rem;">
+                                <button class="btn btn-secondary" onclick="uploadDataFile()" id="upload-btn">Upload</button>
+                                <span style="font-size: 0.8rem; color: var(--color-critical); font-weight: 500;">⚠ Max file size: 3MB</span>
+                                <span id="upload-status" style="font-size: 0.85rem; font-weight: 500; margin-left: auto;"></span>
+                            </div>
+                        </div>
+
+                        <!-- Record Input Grid -->
+                        <div class="form-grid" id="record-form" style="display: none;">
+                            <input type="hidden" id="edit-record-id">
+                            
+                            <div class="grid-field">
+                                <label for="rec-date">Month Date</label>
+                                <input type="date" id="rec-date">
+                            </div>
+                            <div class="grid-field">
+                                <label for="rec-cash">Cash Flow ($)</label>
+                                <input type="number" id="rec-cash" placeholder="100000">
+                            </div>
+                            <div class="grid-field">
+                                <label for="rec-profit">Profit ($)</label>
+                                <input type="number" id="rec-profit" placeholder="50000">
+                            </div>
+                            <div class="grid-field">
+                                <label for="rec-expense">Expenses ($)</label>
+                                <input type="number" id="rec-expense" placeholder="40000">
+                            </div>
+                            <div class="grid-field">
+                                <label for="rec-loans">Loans ($)</label>
+                                <input type="number" id="rec-loans" placeholder="5000">
+                            </div>
+                            <button class="btn" id="save-rec-btn" onclick="saveRecord()">Save</button>
+                        </div>
+
+                        <!-- Data Table -->
+                        <div class="chart-placeholder" id="no-comp-placeholder" style="position: static; height: 200px; padding: 2rem; border-style: solid;">
+                            <span></span>
+                            <p style="font-weight: 500;">No Company Selected</p>
+                            <p style="font-size: 0.8rem;">Select a company from the left panel to manage financial statements.</p>
+                        </div>
+
+                        <div id="records-table-container" style="display: none;">
+                            <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                                <table id="records-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Month</th>
+                                            <th>Cash Flow</th>
+                                            <th>Profit</th>
+                                            <th>Expenses</th>
+                                            <th>Loans to Cover</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Populated via JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <!-- NLP Custom Fine-Tuning Section -->
+                            <div class="glass-card" style="margin-top: 1.5rem; padding: 1.25rem;">
+                                <h3 style="font-size: 1.1rem; margin-top: 0; margin-bottom: 0.5rem;">AI Fine-Tuning Context</h3>
+                                <p style="font-size: 0.8rem; margin-bottom: 1rem;">
+                                    Paste a URL to a news article or paste raw text. The AI will use Natural Language Processing (NLP) to read it and adjust its prediction.
+                                </p>
+                                
+                                <div style="margin-bottom: 1rem;">
+                                    <label class="form-label" for="nlp-url-input" style="font-size: 0.95rem; font-weight: 600; margin-bottom: 0.5rem; display: block;">Custom Web URL (Scraped by AI)</label>
+                                    <input type="url" id="nlp-url-input" class="form-input" placeholder="https://example.com/company-news" style="font-size: 1.05rem; padding: 0.85rem 1rem;">
+                                </div>
+                                
+                                <div>
+                                    <label class="form-label" for="nlp-text-input">Raw Text / Notes</label>
+                                    <textarea id="nlp-text-input" class="form-input" rows="3" placeholder="Paste historical dates, news, or details here..."></textarea>
+                                </div>
+                            </div>
+
+                            <!-- Submit to AI & Import Actions row -->
+                            <div style="display: flex; gap: 1.5rem; align-items: stretch; margin-top: 1.5rem; flex-wrap: wrap;">
+                                <!-- Import Dropzone inside manager -->
+
+                                <!-- Large Glowing Submit Button -->
+                                <button class="btn" style="flex: 1.5; min-width: 250px; font-size: 1rem; padding: 1rem; border-radius: 0.75rem; text-transform: uppercase; font-weight: 800; letter-spacing: 0.05em;" onclick="submitToAI()">
+                                     Run Predictions & View Results
+                                </button>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- ================= STEP 2: AI DISTRESS REPORT ================= -->
+        <div id="step2-view" class="step-view" style="display: none;">
+            
+            <!-- Result header and Back button -->
+            <div class="result-header-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; gap: 1rem; flex-wrap: wrap;">
+                <div style="display: flex; gap: 1rem; align-items: center;">
+                    <h2 style="margin: 0; font-size: 1.5rem; padding-bottom: 0;"> AI Forecast Distress Analysis for <span id="result-company-title" >-</span></h2>
+                </div>
+                <div style="display: flex; gap: 1rem;">
+                    <button class="btn" style="font-weight: 700;" onclick="exportPDF()"> Extract PDF Report</button>
+                </div>
+            </div>
+
+            <!-- Forecast Workspace -->
+            <div id="pdf-report-area" style="display: flex; flex-direction: column; gap: 2rem; padding: 1rem; border-radius: 1rem;">
+                
+                <!-- Alert Banner -->
+                <div class="alert-banner" id="alert-banner">
+                    <span class="alert-icon" id="alert-icon"></span>
+                    <div class="alert-details">
+                        <h3 id="alert-title">Financial Alert</h3>
+                        <p id="alert-msg">Notification Message</p>
+                    </div>
+                </div>
+
+                <!-- Main Result Display Grid -->
+                <div class="dashboard-grid" style="grid-template-columns: 340px 1fr;">
+                    
+                    <!-- Left Sidebar (Stats and CA Display) -->
+                    <div class="sidebar">
+                        <!-- Health Profile Details -->
+                        <div class="glass-card" id="profile-card" style="display: block;">
+                            <h2> Company Health</h2>
+                            <div class="info-list">
+                                <div class="info-row">
+                                    <span class="info-label">Name:</span>
+                                    <span class="info-value" id="profile-name">-</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">Records Stored:</span>
+                                    <span class="info-value" id="profile-records">-</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">Status Check:</span>
+                                    <span id="profile-status">-</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- AI Distress Speedometer Card -->
+                        <div class="glass-card" id="speedometer-card" style="display: none; padding: 1.5rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; width: 100%;">
+                                <h2 style="margin: 0;"> AI Distress Level</h2>
+                                <button class="icon-btn refresh-btn" onclick="refreshSpeedometer()" title="Refresh Speedometer Gauge" style="padding: 0.35rem 0.55rem; font-size: 0.9rem; border-radius: 0.35rem; display: flex; align-items: center; justify-content: center; margin-right: 0;"></button>
+                            </div>
+                            <div style="display: flex; flex-direction: column; align-items: center; width: 100%;">
+                                <div id="speedometer-div" style="width: 280px; height: 160px;"></div>
+                                <div id="speedometer-label" style="font-weight: 700; font-size: 0.95rem; text-transform: uppercase; margin-top: -10px; letter-spacing: 0.05em;"></div>
+                            </div>
+                        </div>
+
+                        <!-- Read-only CA Audit Sheet display -->
+                        <div class="glass-card" id="dash-ca-card">
+                            <h2> CA Audit Notes</h2>
+                            <div id="dash-ca-notes-content" style="border-radius: 0.75rem; padding: 1.25rem; font-size: 0.85rem; line-height: 1.5; max-height: 250px; overflow-y: auto; white-space: pre-wrap;">
+                                <!-- populated via JS -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Main Content (Plotly Chart & Recommendations) -->
+                    <div style="display: flex; flex-direction: column; gap: 2rem;">
+                        <!-- Chart Card -->
+                        <div class="glass-card chart-card">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; width: 100%;">
+                                <h2 style="margin: 0;"> Interactive Cash Flow Forecast</h2>
+                                <button class="icon-btn refresh-btn" onclick="refreshForecastChart()" title="Refresh Line Chart" style="padding: 0.35rem 0.55rem; font-size: 0.9rem; border-radius: 0.35rem; display: flex; align-items: center; justify-content: center; margin-right: 0;"></button>
+                            </div>
+                            
+                            <div class="chart-container">
+                                <div id="chart-div" style="width: 100%; height: 100%;"></div>
+                                
+                                <!-- Placeholder/Loader -->
+                                <div class="chart-placeholder" id="chart-placeholder" style="display: none;">
+                                    <div class="loading-ring" id="loading-ring">
+                                        <div></div><div></div><div></div><div></div>
+                                    </div>
+                                    <div id="placeholder-text">
+                                        <span style="font-size: 2.5rem;"></span>
+                                        <p style="margin-top: 1rem; font-weight: 600;">No Financial Analysis Active</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Additional Analytics Charts Row -->
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-top: 1.5rem;">
+                                <!-- Profit vs Expenses Chart -->
+                                <div class="glass-card" style="padding: 1.5rem; border-radius: 0.75rem;">
+                                    <h3 style="margin-top: 0; margin-bottom: 1rem; font-size: 1rem;">Profit Margin vs Expenses</h3>
+                                    <div id="profit-expense-chart" style="width: 100%; height: 250px;"></div>
+                                </div>
+                                
+                                <!-- Debt & Loan Burden Chart -->
+                                <div class="glass-card" style="padding: 1.5rem; border-radius: 0.75rem;">
+                                    <h3 style="margin-top: 0; margin-bottom: 1rem; font-size: 1rem;">Loan Liability Burden</h3>
+                                    <div id="loan-chart" style="width: 100%; height: 250px;"></div>
+                                </div>
+                                        <!-- Single-Sentence AI Summary -->
+                            <div id="graph-summary-line" style="display: none; margin-top: 1.25rem; padding: 0.85rem 1.15rem; border-radius: 0.5rem; background: rgba(212,175,55,0.06); border-left: 4px solid #d4af37; font-size: 0.88rem; line-height: 1.6; font-weight: 500;"></div>                       </div>
+
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Month-by-Month Forecast Table Card -->
+                <div class="glass-card" id="forecast-table-card">
+                    <h2> Month-by-Month Forecast Data</h2>
+                    <div class="table-responsive">
+                        <table id="forecast-data-table">
+                            <thead>
+                                <tr>
+                                    <th>Month Period</th>
+                                    <th>Forecasted Cash Flow</th>
+                                    <th>Expected Health Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- populated via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <!-- Yearly Analysis Summary Card -->
+                <div class="glass-card" id="yearly-analysis-card">
+                    <h2> Yearly Financial Health Summaries</h2>
+                    <div id="yearly-summaries-container" style="display: flex; flex-direction: column; gap: 1rem; margin-top: 1rem;">
+                        <!-- populated via JS -->
+                    </div>
+                </div>
+                
+                <!-- Historical Event Timeline Card -->
+                <div class="glass-card" id="history-timeline-card" style="display: none;">
+                    <h2 > Historical Event Timeline (Web Analysis)</h2>
+                    <p style="font-size: 0.85rem; margin-top: -0.5rem; margin-bottom: 1rem;">
+                        Events automatically extracted from the web that impacted company growth or decline.
+                    </p>
+                    <div id="history-timeline-container" style="display: flex; flex-direction: column; gap: 1rem; margin-top: 1rem; position: relative; padding-left: 1.5rem; border-left: 2px solid rgba(212,175,55,0.3);">
+                        <!-- populated via JS -->
+                    </div>
+                </div>
+                <!-- Recommendations Card -->
+                <div class="glass-card" id="rec-box" style="display: none;">
+                    <h2 style="display: flex; align-items: center; gap: 0.5rem;">Strategic Action Plan Recommendations</h2>
+                    <ul class="recommendations-list" id="rec-list" style="margin-top: 1rem;">
+                        <!-- Dynamically generated -->
+                    </ul>
+                </div>
+                
+                <!-- AI Conclusion Card -->
+                <div class="glass-card" id="conclusion-card" style="display: none; border-top: 3px solid #d4af37;">
+                    <h2 style="display: flex; align-items: center; gap: 0.5rem;"> AI Conclusion &amp; Final Verdict</h2>
+                    <div id="conclusion-content" style="font-size: 0.9rem; line-height: 1.7; margin-top: 0.75rem;"></div>
+                </div>
+
+                <div style="display: flex; justify-content: center; margin-top: 1rem;">
+                    <button class="btn btn-secondary" style="padding: 0.85rem 2rem; font-size: 0.95rem;" onclick="goToStep1()">
+                         Back to Data Entry &amp; Modify Inputs
+                    </button>
+                </div>
+
+            </div>
+
+        </div>
+
+    </main>
+
+
+    <script>
+        let companies = [];
+        let selectedCompanyId = null;
+        let currentCurrencySymbol = '$';
+        let lastForecastData = null;
+
+        // ================= SIDEBAR MENU =================
+        function openMenu() {
+            document.getElementById('sidebar-menu').style.left = '0';
+            document.getElementById('menu-overlay').style.display = 'block';
+        }
+        function closeMenu() {
+            document.getElementById('sidebar-menu').style.left = '-320px';
+            document.getElementById('menu-overlay').style.display = 'none';
+        }
+        function menuGoToStep1() {
+            closeMenu();
+            goToStep1();
+        }
+        function menuGoToStep2() {
+            closeMenu();
+            if (lastForecastData) {
+                goToStep2();
+            } else {
+                alert('Please run a forecast first to view the AI Distress Report.');
+            }
+        }
+
+        // Step transition navigation functions
+        function goToStep1() {
+            document.getElementById('indicator-step1').classList.add('active');
+            document.getElementById('indicator-step1').classList.remove('completed');
+            document.getElementById('indicator-step2').classList.remove('active');
+            document.getElementById('indicator-step2').classList.remove('completed');
+            document.getElementById('workflow-line-1').classList.remove('completed');
+            
+            document.getElementById('step1-view').style.display = 'block';
+            document.getElementById('step2-view').style.display = 'none';
+        }
+
+        function goToStep2() {
+            document.getElementById('indicator-step1').classList.remove('active');
+            document.getElementById('indicator-step1').classList.add('completed');
+            document.getElementById('indicator-step2').classList.add('active');
+            document.getElementById('workflow-line-1').classList.add('completed');
+            
+            document.getElementById('step2-view').style.display = 'block';
+            document.getElementById('step1-view').style.display = 'none';
+            
+            // Fix Plotly rendering in newly visible container
+            if (lastForecastData) {
+                Plotly.Plots.resize('chart-div');
+                Plotly.Plots.resize('speedometer-div');
+            }
+        }
+
+        // Load Companies and Currency on startup
+        document.addEventListener('DOMContentLoaded', () => {
+            loadCompanyList(true);
+            const savedCurrency = localStorage.getItem('selectedCurrency') || '$';
+            changeCurrency(savedCurrency);
+        });
+
+        function loadCompanyList(populateDashboard = false) {
+            return fetch('/api/companies')
+            .then(res => res.json())
+            .then(data => {
+                companies = data;
+
+                // Populate Manager Sidebar Table
+                const tbody = document.querySelector('#company-table tbody');
+                tbody.innerHTML = '';
+                if (companies.length === 0) {
+                    tbody.innerHTML = '<tr><td style="text-align: center;">No companies added yet.</td></tr>';
+                    return;
+                }
+
+                companies.forEach(c => {
+                    tbody.innerHTML += `
+                        <tr style="cursor: pointer;" onclick="selectCompanyForCRUD(${c.id}, '${c.name.replace(/'/g, "\\'")}')">
+                            <td id="comp-name-td-${c.id}" style="font-weight: 500;">${c.name}</td>
+                            <td id="comp-actions-td-${c.id}" style="text-align: right; width: 140px; white-space: nowrap;">
+                                <button class="btn btn-secondary" onclick="event.stopPropagation(); toggleInlineEdit(${c.id}, '${c.name.replace(/'/g, "\\'").replace(/"/g, "&quot;")}')" style="padding: 0.3rem 0.6rem; font-size: 0.75rem; margin-right: 0.4rem;">Edit</button>
+                                <button class="btn btn-danger" onclick="event.stopPropagation(); deleteCompany(${c.id})" style="padding: 0.3rem 0.6rem; font-size: 0.75rem;">Delete</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            })
+            .catch(err => console.error('Error loading companies:', err));
+        }
+
+        function addCompany() {
+            const input = document.getElementById('new-comp-name');
+            const name = input.value.trim();
+            if (!name) return;
+
+            fetch('/api/companies', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: name })
+            })
+            .then(res => {
+                if (!res.ok) return res.json().then(e => { throw new Error(e.error); });
+                return res.json();
+            })
+            .then(data => {
+                input.value = '';
+                loadCompanyList(true);
+                // Trigger Setup Wizard Modal immediately for this new company ID
+                openWizard(data.id);
+            })
+            .catch(err => alert(err.message));
+        }
+
+        function deleteCompany(id) {
+            if (!confirm('Are you sure you want to delete this company and all its historical records?')) return;
+
+            fetch(`/api/companies/${id}`, { method: 'DELETE' })
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) throw new Error(data.error);
+                if (selectedCompanyId === id) {
+                    selectedCompanyId = null;
+                    document.getElementById('no-comp-placeholder').style.display = 'flex';
+                    document.getElementById('records-table-container').style.display = 'none';
+                    document.getElementById('record-form').style.display = 'none';
+                    document.getElementById('bulk-upload-section').style.display = 'none';
+                    document.getElementById('ca-sheet-editor-card').style.display = 'none';
+                    document.getElementById('selected-comp-title').innerText = '--';
+                }
+                loadCompanyList(true);
+            })
+            .catch(err => alert(err.message));
+        }
+
+        // ================= SETUP WIZARD =================
+
+        function openWizard(companyId) {
+            document.getElementById('wizard-company-id').value = companyId;
+            document.getElementById('wizard-modal').style.display = 'flex';
+        }
+
+        function closeWizard(needReloadList = false) {
+            document.getElementById('wizard-modal').style.display = 'none';
+            if (needReloadList) {
+                loadCompanyList(true);
+            }
+        }
+
+        async function submitWizard() {
+            const companyId = document.getElementById('wizard-company-id').value;
+            const currency = document.getElementById('wizard-currency').value;
+            const years = parseInt(document.getElementById('wizard-years').value);
+            const profit = parseFloat(document.getElementById('wizard-profit').value || 0.0);
+            const loans = parseFloat(document.getElementById('wizard-loans').value || 0.0);
+            
+            // Show seeding indicator
+            const btn = document.querySelector('#wizard-modal button:last-child');
+            const originalText = btn.innerText;
+            btn.disabled = true;
+            btn.innerText = 'Seeding...';
+
+            const baseDate = new Date("2023-12-31");
+            const monthsCount = years * 12;
+            
+            const monthlyProfit = Math.round(profit / monthsCount);
+            const monthlyLoan = Math.round(loans / monthsCount);
+            const defaultCash = 100000; // Starting baseline
+            
+            try {
+                // Save company currency preference to the database
+                await fetch(`/api/companies/${companyId}/currency`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ currency: currency })
+                });
+                
+                // Update client state
+                changeCurrency(currency);
+
+                // Seed database placeholders sequentially
+                for (let i = 1; i <= monthsCount; i++) {
+                    const currentDate = new Date(baseDate);
+                    currentDate.setMonth(baseDate.getMonth() + i);
+                    const dateStr = currentDate.toISOString().split('T')[0];
+                    
+                    // We simulate cash declining slightly or holding flat to guide user input
+                    // We seed cash flow, profit shares, expenses = cash - profit to hold balance
+                    const cashVal = defaultCash - (i * 1000);
+                    const expenseVal = Math.max(0, cashVal - monthlyProfit);
+                    
+                    await fetch(`/api/companies/${companyId}/records`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            date: dateStr,
+                            cash_flow: Math.max(0.0, cashVal),
+                            profit: monthlyProfit,
+                            expenses: expenseVal,
+                            loans: monthlyLoan
+                        })
+                    });
+                }
+                
+                // Write standard template text to the CA Sheet automatically
+                const caTemplateText = `Audited by Chartered Accountant (CA) on 2026-06-16.\nCompany set up with a ${years}-year baseline configuration.\nOutstanding loan of ${currency}${loans.toLocaleString()} is currently distributed across monthly liability coverage targets.\nAnnualized target profit: ${currency}${profit.toLocaleString()}.\nAction Plan: Verify monthly cash entries and run LSTM forecast to verify safety limits.`;
+                
+                await fetch(`/api/companies/${companyId}/ca-sheet`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ca_notes: caTemplateText })
+                });
+
+                closeWizard(false);
+                await loadCompanyList(true); // Await the reload of the company list so companies array has the new entry
+                
+                // Select company in CRUD table for immediate editing
+                const compName = companies.find(c => c.id == companyId)?.name || 'New Company';
+                selectCompanyForCRUD(companyId, compName, currency);
+            } catch (err) {
+                alert("Wizard configuration failed: " + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerText = originalText;
+            }
+        }
+
+        // ================= CA AUDIT SHEET NOTES =================
+
+        function loadCASheet() {
+            if (!selectedCompanyId) return;
+            fetch(`/api/companies/${selectedCompanyId}/ca-sheet`)
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('ca-sheet-textarea').value = data.ca_notes || '';
+            })
+            .catch(err => console.error("Error loading CA sheet:", err));
+        }
+
+        function saveCASheet() {
+            if (!selectedCompanyId) return;
+            const text = document.getElementById('ca-sheet-textarea').value;
+            fetch(`/api/companies/${selectedCompanyId}/ca-sheet`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ca_notes: text })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) throw new Error(data.error);
+                alert("CA Audit Sheet saved successfully!");
+            })
+            .catch(err => alert(err.message));
+        }
+
+        // ================= CRUD FINANCIAL RECORDS =================
+
+        function selectCompanyForCRUD(id, name, currency = null) {
+            selectedCompanyId = id;
+            
+            // Apply company currency preference
+            let curSymbol = '$';
+            if (currency) {
+                curSymbol = currency;
+            } else {
+                const comp = companies.find(c => c.id == id);
+                curSymbol = comp ? (comp.currency || '$') : '$';
+            }
+            changeCurrency(curSymbol);
+
+            document.getElementById('selected-comp-title').innerText = name;
+            document.getElementById('no-comp-placeholder').style.display = 'none';
+            document.getElementById('records-table-container').style.display = 'block';
+            document.getElementById('record-form').style.display = 'grid';
+            document.getElementById('bulk-upload-section').style.display = 'block';
+            document.getElementById('ca-sheet-editor-card').style.display = 'block';
+            
+            resetRecordForm();
+            loadRecords();
+            loadCASheet();
+        }
+
+        function resetRecordForm() {
+            document.getElementById('edit-record-id').value = '';
+            document.getElementById('rec-date').value = '';
+            document.getElementById('rec-cash').value = '';
+            document.getElementById('rec-profit').value = '';
+            document.getElementById('rec-expense').value = '';
+            document.getElementById('rec-loans').value = '';
+            document.getElementById('save-rec-btn').innerText = 'Save';
+            document.getElementById('rec-date').disabled = false;
+        }
+
+        function loadRecords() {
+            if (!selectedCompanyId) return;
+
+            fetch(`/api/companies/${selectedCompanyId}/records`)
+            .then(res => res.json())
+            .then(records => {
+                const tbody = document.querySelector('#records-table tbody');
+                tbody.innerHTML = '';
+                
+                if (records.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No records found. Complete wizard, enter record above, or upload a CSV.</td></tr>';
+                    return;
+                }
+
+                records.forEach(r => {
+                    const loanVal = r.loans || 0;
+                    tbody.innerHTML += `
+                        <tr>
+                            <td style="font-weight: 500;">${r.date}</td>
+                            <td>${currentCurrencySymbol}${r.cash_flow.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</td>
+                            <td>${currentCurrencySymbol}${r.profit.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</td>
+                            <td>${currentCurrencySymbol}${r.expenses.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</td>
+                            <td >${currentCurrencySymbol}${loanVal.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</td>
+                            <td>
+                                <button class="btn btn-secondary" style="padding: 0.3rem 0.6rem; font-size: 0.75rem; margin-right: 0.4rem;" onclick="editRecord(${r.id}, '${r.date}', ${r.cash_flow}, ${r.profit}, ${r.expenses}, ${loanVal})">Edit</button>
+                                <button class="btn btn-secondary" style="padding: 0.3rem 0.6rem; font-size: 0.75rem;" onclick="deleteRecord(${r.id})">Delete</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            })
+            .catch(err => console.error('Error loading records:', err));
+        }
+
+        function saveRecord() {
+            if (!selectedCompanyId) return;
+
+            const recordId = document.getElementById('edit-record-id').value;
+            const date = document.getElementById('rec-date').value;
+            const cash = document.getElementById('rec-cash').value;
+            const profit = document.getElementById('rec-profit').value;
+            const expense = document.getElementById('rec-expense').value;
+            const loans = document.getElementById('rec-loans').value || 0.0;
+
+            if (!date || !cash || !profit || !expense) {
+                alert('All fields except loans are required.');
+                return;
+            }
+
+            const payload = {
+                date: date,
+                cash_flow: parseFloat(cash),
+                profit: parseFloat(profit),
+                expenses: parseFloat(expense),
+                loans: parseFloat(loans)
+            };
+
+            let url = `/api/companies/${selectedCompanyId}/records`;
+            let method = 'POST';
+
+            if (recordId) {
+                url = `/api/records/${recordId}`;
+                method = 'PUT';
+            }
+
+            fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) throw new Error(data.error);
+                resetRecordForm();
+                loadRecords();
+            })
+            .catch(err => alert(err.message));
+        }
+
+        function editRecord(id, date, cash, profit, expense, loans) {
+            document.getElementById('edit-record-id').value = id;
+            document.getElementById('rec-date').value = date;
+            document.getElementById('rec-date').disabled = true;
+            document.getElementById('rec-cash').value = cash;
+            document.getElementById('rec-profit').value = profit;
+            document.getElementById('rec-expense').value = expense;
+            document.getElementById('rec-loans').value = loans;
+            document.getElementById('save-rec-btn').innerText = 'Update';
+        }
+
+        function deleteRecord(id) {
+            if (!confirm('Are you sure you want to delete this monthly record?')) return;
+
+            fetch(`/api/records/${id}`, { method: 'DELETE' })
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) throw new Error(data.error);
+                loadRecords();
+            })
+            .catch(err => alert(err.message));
+        }
+
+        function importCSV(file) {
+            if (!file || !selectedCompanyId) return;
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            fetch(`/api/companies/${selectedCompanyId}/import`, {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) throw new Error(data.error);
+                alert(data.success);
+                loadRecords();
+                document.getElementById('db-file-input').value = '';
+            })
+            .catch(err => {
+                alert('Import Failed: ' + err.message);
+                document.getElementById('db-file-input').value = '';
+            });
+        }
+
+        function submitToAI() {
+            if (!selectedCompanyId) {
+                alert('Please select or add a company from the left panel first.');
+                return;
+            }
+            runForecast(selectedCompanyId);
+        }
+
+        function runForecast(companyId) {
+            if (!companyId) {
+                resetDashboard();
+                return;
+            }
+
+            document.getElementById('placeholder-text').style.display = 'none';
+            document.getElementById('loading-ring').style.display = 'inline-block';
+            document.getElementById('chart-placeholder').style.display = 'flex';
+            document.getElementById('profile-card').style.display = 'none';
+            document.getElementById('alert-banner').style.display = 'none';
+            document.getElementById('rec-box').style.display = 'none';
+            document.getElementById('dash-ca-card').style.display = 'none';
+
+            // Transition to Step 2 results screen immediately to show loader
+            goToStep2();
+            
+            const nlpUrl = document.getElementById('nlp-url-input') ? document.getElementById('nlp-url-input').value.trim() : '';
+            const nlpText = document.getElementById('nlp-text-input') ? document.getElementById('nlp-text-input').value.trim() : '';
+
+            fetch(`/api/companies/${companyId}/forecast`, { 
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ custom_url: nlpUrl, raw_text: nlpText })
+            })
+            .then(res => {
+                if (!res.ok) {
+                    return res.json().then(e => { throw new Error(e.error); });
+                }
+                return res.json();
+            })
+            .then(data => {
+                lastForecastData = data;
+                document.getElementById('result-company-title').innerText = data.company;
+                renderDashboard(data);
+            })
+            .catch(err => {
+                alert('Forecast Failed: ' + err.message);
+                goToStep1();
+                resetDashboard();
+            });
+        }
+
+        function resetDashboard() {
+            document.getElementById('loading-ring').style.display = 'none';
+            document.getElementById('placeholder-text').style.display = 'block';
+            document.getElementById('chart-placeholder').style.display = 'flex';
+            document.getElementById('profile-card').style.display = 'none';
+            document.getElementById('speedometer-card').style.display = 'none';
+            document.getElementById('alert-banner').style.display = 'none';
+            document.getElementById('rec-box').style.display = 'none';
+            document.getElementById('dash-ca-card').style.display = 'none';
+            document.getElementById('forecast-table-card').style.display = 'none';
+            document.getElementById('yearly-analysis-card').style.display = 'none';
+            Plotly.purge('chart-div');
+            Plotly.purge('speedometer-div');
+        }
+
+        function renderDashboard(data) {
+            document.getElementById('chart-placeholder').style.display = 'none';
+            
+            // Populate profile
+            document.getElementById('profile-card').style.display = 'block';
+            document.getElementById('profile-name').innerText = data.company;
+            document.getElementById('profile-records').innerText = data.historical.dates.length + ' Months';
+            
+            // Populate CA Notes Card
+            const caCard = document.getElementById('dash-ca-card');
+            const caContent = document.getElementById('dash-ca-notes-content');
+            if (data.ca_notes) {
+                caContent.innerText = data.ca_notes;
+                caCard.style.display = 'block';
+            } else {
+                caCard.style.display = 'none';
+            }
+            
+            const primaryAlert = data.alerts[0];
+            
+            // Draw Speedometer
+            document.getElementById('speedometer-card').style.display = 'block';
+            drawSpeedometer(primaryAlert.status, data.historical.cash_flow, data.predictions.cash_flow);
+            
+            const banner = document.getElementById('alert-banner');
+            const alertIcon = document.getElementById('alert-icon');
+            const alertTitle = document.getElementById('alert-title');
+            const alertMsg = document.getElementById('alert-msg');
+            const badge = document.getElementById('profile-status');
+            
+            banner.style.display = 'flex';
+            banner.className = 'alert-banner';
+            
+            const recList = document.getElementById('rec-list');
+            recList.innerHTML = '';
+            document.getElementById('rec-box').style.display = 'block';
+            
+            if (primaryAlert.status === 'CRITICAL') {
+                banner.classList.add('alert-banner-critical');
+                alertIcon.innerText = '';
+                alertTitle.innerText = 'CRITICAL: Insolvency / Bankruptcy Risk Detected';
+                alertMsg.innerText = primaryAlert.message.replace(/\$/g, currentCurrencySymbol);
+                
+                badge.className = 'badge badge-critical';
+                badge.innerText = 'Critical';
+                
+                recList.innerHTML = `
+                    <li><strong>Emergency Funding</strong>: Secure immediate bridge loans or line of credit.</li>
+                    <li><strong>Expense Freezes</strong>: Stop non-essential capital expenditures (CapEx).</li>
+                    <li><strong>Vendor Accounts</strong>: Negotiate delayed terms (Net 60/90).</li>
+                    <li><strong>Receivables</strong>: Offer early payment discounts to speed up inflows.</li>
+                `;
+            } else if (primaryAlert.status === 'WARNING') {
+                banner.classList.add('alert-banner-warning');
+                alertIcon.innerText = '';
+                alertTitle.innerText = 'WARNING: Liquidity Constraints Flagged';
+                alertMsg.innerText = primaryAlert.message.replace(/\$/g, currentCurrencySymbol);
+                
+                badge.className = 'badge badge-warning';
+                badge.innerText = 'Warning';
+                
+                recList.innerHTML = `
+                    <li><strong>Cost Reductions</strong>: Plan a 10-15% overhead cost audit.</li>
+                    <li><strong>Working Capital</strong>: Liquidate excess or stale inventory.</li>
+                    <li><strong>Revenue Cushion</strong>: Focus sales operations on high-margin offerings.</li>
+                `;
+            } else {
+                banner.classList.add('alert-banner-stable');
+                alertIcon.innerText = '';
+                alertTitle.innerText = 'FINANCIAL STATUS: Healthy & Stable';
+                alertMsg.innerText = primaryAlert.message.replace(/\$/g, currentCurrencySymbol);
+                
+                badge.className = 'badge badge-stable';
+                badge.innerText = 'Healthy';
+                
+                recList.innerHTML = `
+                    <li><strong>Growth Reinvestment</strong>: Reallocate surplus cash to growth sectors or yield-generating assets.</li>
+                    <li><strong>Reserves</strong>: Keep maintaining the safety buffer.</li>
+                    <li><strong>Business As Usual</strong>: Standard operational plans apply.</li>
+                `;
+            }
+            
+            // Populate Forecast Table
+            const fTableCard = document.getElementById('forecast-table-card');
+            const fTableBody = document.querySelector('#forecast-data-table tbody');
+            fTableBody.innerHTML = '';
+            fTableCard.style.display = 'block';
+            
+            let startCash = 100000;
+            if (data.historical && data.historical.cash_flow && data.historical.cash_flow.length > 0) {
+                startCash = data.historical.cash_flow[data.historical.cash_flow.length - 1];
+            }
+            
+            data.predictions.dates.forEach((date, index) => {
+                const cashVal = data.predictions.cash_flow[index];
+                let statusBadge = '';
+                
+                if (cashVal === 0) {
+                    statusBadge = '<span class="badge badge-critical">Insolvent</span>';
+                } else if (cashVal < 15000) {
+                    statusBadge = '<span class="badge badge-warning">Liquidity Risk</span>';
+                } else if (startCash && cashVal < startCash * 0.6) {
+                    statusBadge = '<span class="badge badge-critical">Company Falls</span>';
+                } else {
+                    statusBadge = '<span class="badge badge-stable">Healthy</span>';
+                }
+                
+                fTableBody.innerHTML += `
+                    <tr>
+                        <td style="font-weight: 600;">${date}</td>
+                        <td style="font-weight: 500;">${currentCurrencySymbol}${cashVal.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</td>
+                        <td>${statusBadge}</td>
+                    </tr>
+                `;
+            });
+            
+            // Populate Yearly Summaries
+            const yearlyCard = document.getElementById('yearly-analysis-card');
+            const yearlyContainer = document.getElementById('yearly-summaries-container');
+            yearlyContainer.innerHTML = '';
+            yearlyCard.style.display = 'block';
+            
+            data.yearly_summaries.forEach(s => {
+                let typeBadge = s.type === 'Historical' 
+                    ? '<span class="badge badge-stable" style="margin-left: 0.5rem;">Historical</span>'
+                    : '<span class="badge badge-warning" style="margin-left: 0.5rem;">Forecasted</span>';
+                    
+                yearlyContainer.innerHTML += `
+                    <div style="border-radius: 0.75rem; padding: 1.25rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; padding-bottom: 0.5rem;">
+                            <h3 style="font-size: 1rem; margin: 0;">Year ${s.year}</h3>
+                            ${typeBadge}
+                        </div>
+                        <p style="font-size: 0.85rem; line-height: 1.45;">${s.text.replace(/\$/g, currentCurrencySymbol)}</p>
+                    </div>
+                `;
+            });
+            
+            // Populate Historical Event Timeline
+            const historyCard = document.getElementById('history-timeline-card');
+            const historyContainer = document.getElementById('history-timeline-container');
+            historyContainer.innerHTML = '';
+            
+            if (data.history_timeline && data.history_timeline.length > 0) {
+                historyCard.style.display = 'block';
+                
+                data.history_timeline.forEach(event => {
+                    let impactColor = event.impact === 'Growth/Success' ? '#4ade80' : '#f87171'; // Green for growth, red for fault
+                    let impactBg = event.impact === 'Growth/Success' ? 'rgba(74, 222, 128, 0.1)' : 'rgba(248, 113, 113, 0.1)';
+                    
+                    historyContainer.innerHTML += `
+                        <div style="position: relative; margin-bottom: 1.5rem;">
+                            <!-- Node dot -->
+                            <div style="position: absolute; left: -1.85rem; top: 0.25rem; width: 0.75rem; height: 0.75rem; border-radius: 50%;"></div>
+                            
+                            <!-- Content Box -->
+                            <div style="border-radius: 0.75rem; padding: 1.25rem;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                                    <h3 style="font-size: 1.1rem; margin: 0;">${event.year}</h3>
+                                    <span class="badge" >${event.impact}</span>
+                                </div>
+                                <p style="font-size: 0.85rem; line-height: 1.45; margin: 0;">
+                                    ${event.event}
+                                </p>
+                            </div>
+                        </div>
+                    `;
+                });
+            } else {
+                historyCard.style.display = 'none';
+            }
+            
+            // Draw Chart
+            const histTrace = {
+                x: data.historical.dates,
+                y: data.historical.cash_flow,
+                type: 'scatter',
+                mode: 'lines+markers',
+                name: 'Historical Cash Flow',
+                line: { color: '#3b82f6', width: 3 },
+                marker: { size: 6, color: '#60a5fa' },
+                hovertemplate: 'Date: %{x}<br>Cash Flow: ' + currentCurrencySymbol + '%{y:,.0f}<extra></extra>'
+            };
+            
+            const lastHistDate = data.historical.dates[data.historical.dates.length - 1];
+            const lastHistVal = data.historical.cash_flow[data.historical.cash_flow.length - 1];
+            
+            const predDates = [lastHistDate, ...data.predictions.dates];
+            const predValues = [lastHistVal, ...data.predictions.cash_flow];
+            
+            const predTrace = {
+                x: predDates,
+                y: predValues,
+                type: 'scatter',
+                mode: 'lines+markers',
+                name: 'AI Gold Forecast (Next 12M)',
+                line: {
+                    color: '#d4af37',
+                    width: 3,
+                    dash: 'dash'
+                },
+                marker: { size: 7, color: '#f59e0b' },
+                hovertemplate: 'Date: %{x}<br>Cash Flow: ' + currentCurrencySymbol + '%{y:,.0f}<extra></extra>'
+            };
+            
+            const layout = {
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                font: { family: 'Outfit, sans-serif', color: '#fcfaf2' },
+                xaxis: { gridcolor: 'rgba(212, 175, 55, 0.08)', zeroline: false },
+                yaxis: { 
+                    gridcolor: 'rgba(212, 175, 55, 0.08)', 
+                    zerolinecolor: 'rgba(212, 175, 55, 0.15)',
+                    tickprefix: currentCurrencySymbol
+                },
+                margin: { t: 30, b: 30, l: 60, r: 20 },
+                legend: { orientation: 'h', yanchor: 'bottom', y: 1.02, xanchor: 'right', x: 1 },
+                hovermode: 'closest'
+            };
+            
+            const config = { responsive: true, displayModeBar: false };
+            Plotly.newPlot('chart-div', [histTrace, predTrace], layout, config);
+            
+            // DRAW: Profit vs Expenses (Stacked Bar Chart)
+            const profitTrace = {
+                x: data.historical.dates,
+                y: data.historical.profit,
+                name: 'Profit',
+                type: 'bar',
+                marker: { color: 'rgba(16, 185, 129, 0.7)' } // Green
+            };
+            
+            const expenseTrace = {
+                x: data.historical.dates,
+                y: data.historical.expenses,
+                name: 'Expenses',
+                type: 'bar',
+                marker: { color: 'rgba(239, 68, 68, 0.7)' } // Red
+            };
+            
+            const peLayout = {
+                barmode: 'stack',
+                paper_bgcolor: 'transparent',
+                plot_bgcolor: 'transparent',
+                margin: { t: 10, l: 40, r: 10, b: 40 },
+                xaxis: { showgrid: false },
+                yaxis: { showgrid: true, gridcolor: 'rgba(255,255,255,0.05)' },
+                font: { family: 'Inter, sans-serif', color: getComputedStyle(document.body).getPropertyValue('--text-primary').trim() },
+                legend: { orientation: 'h', y: -0.2 }
+            };
+            
+            Plotly.newPlot('profit-expense-chart', [profitTrace, expenseTrace], peLayout, config);
+            
+            // DRAW: Loan Liability Burden (Area Chart)
+            const loanTrace = {
+                x: data.historical.dates,
+                y: data.historical.loans,
+                fill: 'tozeroy',
+                type: 'scatter',
+                mode: 'lines',
+                line: { color: 'rgba(245, 158, 11, 0.8)', width: 2 },
+                name: 'Outstanding Loans',
+                fillcolor: 'rgba(245, 158, 11, 0.4)' // Amber area
+            };
+            
+            const loanLayout = {
+                paper_bgcolor: 'transparent',
+plot_bgcolor: 'transparent',
+                margin: { t: 10, l: 40, r: 10, b: 40 },
+                xaxis: { showgrid: false },
+                yaxis: { showgrid: true, gridcolor: 'rgba(255,255,255,0.05)' },
+                font: { family: 'Inter, sans-serif', color: getComputedStyle(document.body).getPropertyValue('--text-primary').trim() }
+            };
+            
+            Plotly.newPlot('loan-chart', [loanTrace], loanLayout, config);
+            
+            // =============================================
+            // SINGLE-SENTENCE SUMMARY (across all graphs)
+            // =============================================
+            const sym = currentCurrencySymbol;
+            const fmtNum = (n) => n.toLocaleString('en-US', {maximumFractionDigits: 0});
+            
+            // =============================================
+            // AI CONCLUSION & FINAL VERDICT
+            // =============================================
+            const concCard = document.getElementById('conclusion-card');
+            const concContent = document.getElementById('conclusion-content');
+            concCard.style.display = 'block';
+            
+            const histCash = data.historical.cash_flow;
+            const predCash = data.predictions.cash_flow;
+            const avgHist = histCash.reduce((a,b) => a + b, 0) / histCash.length;
+            const avgPred = predCash.length > 0 ? predCash.reduce((a,b) => a + b, 0) / predCash.length : 0;
+            const minPred = predCash.length > 0 ? Math.min(...predCash) : 0;
+            const overallChange = avgHist > 0 ? (((avgPred - avgHist) / avgHist) * 100).toFixed(1) : 0;
+            
+            const totalP = data.historical.profit ? data.historical.profit.reduce((a,b) => a + b, 0) : 0;
+            const totalE = data.historical.expenses ? data.historical.expenses.reduce((a,b) => a + b, 0) : 0;
+            const totalL = data.historical.loans ? data.historical.loans.reduce((a,b) => a + b, 0) : 0;
+            const netM = totalP - totalE;
+            
+            let verdictColor, verdictIcon, verdictTitle, verdictBody;
+            
+            const primaryStatus = data.alerts && data.alerts.length > 0 ? data.alerts[0].status : 'STABLE';
+            
+            // --- Single Sentence Summary ---
+            const summaryLine = document.getElementById('graph-summary-line');
+            let statusWord = 'stable', statusEmoji = '🟢';
+            if (primaryStatus === 'CRITICAL') { statusWord = 'critical distress'; statusEmoji = '🔴'; }
+            else if (primaryStatus === 'WARNING') { statusWord = 'moderate risk'; statusEmoji = '🟡'; }
+            const cfDirection = overallChange >= 0 ? 'growth' : 'decline';
+            const marginWord = netM >= 0 ? 'positive' : 'negative';
+            const debtWord = totalL > 0 ? `${sym}${fmtNum(totalL)} in outstanding debt` : 'zero outstanding debt';
+            summaryLine.style.display = 'block';
+            summaryLine.innerHTML = `${statusEmoji} <strong>Summary:</strong> Based on all indicators, the AI predicts a <strong>${Math.abs(overallChange)}% cash flow ${cfDirection}</strong> over the next 12 months with a <strong>${marginWord} net margin</strong> of ${sym}${fmtNum(Math.abs(netM))}, <strong>${debtWord}</strong>, and an overall financial status of <strong>${statusWord}</strong>.`;
+
+            if (primaryStatus === 'CRITICAL') {
+                verdictColor = '#ef4444'; verdictIcon = '🔴'; verdictTitle = 'HIGH RISK — Immediate Action Required';
+                verdictBody = `The AI model forecasts a <strong>${Math.abs(overallChange)}% decline</strong> in average cash flow over the next 12 months. ` +
+                    `The predicted minimum cash flow drops to <strong>${sym}${fmtNum(minPred)}</strong>, which is critically below safe operating levels. ` +
+                    (netM < 0 ? `Additionally, historical net margin is <strong>negative (${sym}${fmtNum(netM)})</strong>, confirming the company is spending more than it earns. ` : '') +
+                    (totalL > 0 ? `Outstanding debt totaling <strong>${sym}${fmtNum(totalL)}</strong> further compounds the risk of insolvency. ` : '') +
+                    `<br><br><strong>Verdict:</strong> The company shows strong indicators of financial distress. Urgent restructuring, cost freezes, and emergency capital injection are recommended.`;
+            } else if (primaryStatus === 'WARNING') {
+                verdictColor = '#f59e0b'; verdictIcon = '🟡'; verdictTitle = 'MODERATE RISK — Caution Advised';
+                verdictBody = `The AI model predicts a <strong>${Math.abs(overallChange)}% ${overallChange >= 0 ? 'increase' : 'decrease'}</strong> in average cash flow. ` +
+                    `While not immediately critical, the predicted minimum of <strong>${sym}${fmtNum(minPred)}</strong> falls within the warning zone. ` +
+                    (netM < 0 ? `Historical expenses exceed profits by <strong>${sym}${fmtNum(Math.abs(netM))}</strong>, which is unsustainable long-term. ` : 
+                     `Historical net margin remains positive at <strong>${sym}${fmtNum(netM)}</strong>. `) +
+                    (totalL > 0 ? `Outstanding liabilities of <strong>${sym}${fmtNum(totalL)}</strong> should be monitored closely. ` : '') +
+                    `<br><br><strong>Verdict:</strong> The company is on a watchlist. A 10-15% cost audit and working capital optimization are recommended to prevent further deterioration.`;
+            } else {
+                verdictColor = '#10b981'; verdictIcon = '🟢'; verdictTitle = 'STABLE — Company is Financially Healthy';
+                verdictBody = `The AI model projects a <strong>${Math.abs(overallChange)}% ${overallChange >= 0 ? 'growth' : 'change'}</strong> in average cash flow over the coming year. ` +
+                    `Cash reserves remain well above the safety margin with a forecasted minimum of <strong>${sym}${fmtNum(minPred)}</strong>. ` +
+                    (netM > 0 ? `Historical net margin is a strong <strong>${sym}${fmtNum(netM)}</strong>, confirming profitable operations. ` : '') +
+                    (totalL > 0 ? `Outstanding loans of <strong>${sym}${fmtNum(totalL)}</strong> are manageable relative to cash flow levels. ` : 'The company carries <strong>zero outstanding debt</strong>, which is an excellent position. ') +
+                    `<br><br><strong>Verdict:</strong> The company demonstrates robust financial health. Surplus cash can be reinvested into growth initiatives or yield-generating assets.`;
+            }
+            
+            concContent.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 0.6rem; margin-bottom: 1rem; padding: 0.75rem 1rem; border-radius: 0.5rem; background: ${verdictColor}15; border-left: 4px solid ${verdictColor};">
+                    <span style="font-size: 1.5rem;">${verdictIcon}</span>
+                    <strong style="font-size: 1.05rem; color: ${verdictColor};">${verdictTitle}</strong>
+                </div>
+                <p style="margin: 0;">${verdictBody}</p>
+            `;
+            
+        }
+
+        function exportPDF() {
+            const element = document.getElementById('pdf-report-area');
+            
+            // Capture original inline styles
+            const originalStyle = element.getAttribute('style') || '';
+            
+            // Set standard width for A4 and add printable margins
+            element.style.width = '800px';
+            element.style.padding = '20px';
+            
+            // Temporarily change grid layout to stacked flex to avoid horizontal clipping
+            const grid = element.querySelector('.dashboard-grid');
+            let originalGridStyle = '';
+            if (grid) {
+                originalGridStyle = grid.getAttribute('style') || '';
+                grid.style.display = 'flex';
+                grid.style.flexDirection = 'column';
+                grid.style.gap = '25px';
+            }
+
+            // Force Plotly chart to resize to the standard print width before capturing
+            Plotly.Plots.resize('chart-div');
+
+            const companyName = document.getElementById('result-company-title').innerText || 'Company';
+            
+            const opt = {
+                margin:       [10, 10, 10, 10],
+                filename:     `${companyName.replace(/\s+/g, '_')}_Financial_Distress_Report.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { 
+                    scale: 2, 
+                    useCORS: true,
+                    backgroundColor: '#070a13',
+                    scrollY: 0,
+                    scrollX: 0
+                },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
+                pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
+            };
+
+            // Run html2pdf and restore styling after download has been initiated
+            html2pdf().set(opt).from(element).toContainer().toCanvas().toImg().toPdf().save().then(() => {
+                // Restore original styling
+                element.setAttribute('style', originalStyle);
+                if (grid) {
+                    grid.setAttribute('style', originalGridStyle);
+                }
+                Plotly.Plots.resize('chart-div');
+            }).catch(err => {
+                console.error("PDF Export failed:", err);
+                element.setAttribute('style', originalStyle);
+                if (grid) {
+                    grid.setAttribute('style', originalGridStyle);
+                }
+                Plotly.Plots.resize('chart-div');
+            });
+        }
+
+        function downloadSampleCSV() {
+            let csvContent = "data:text/csv;charset=utf-8,";
+            csvContent += "company,date,cash_flow,profit,expenses,loans\n";
+            
+            const baseDate = new Date("2024-01-31");
+            for (let i = 0; i < 24; i++) {
+                const currentDate = new Date(baseDate);
+                currentDate.setMonth(baseDate.getMonth() + i);
+                const dateStr = currentDate.toISOString().split('T')[0];
+                
+                const cash = Math.max(5000, Math.round(110000 - (i * 3800) + (Math.random() * 8000 - 4000)));
+                const profit = Math.round(45000 - (i * 2000) + (Math.random() * 5000 - 2500));
+                const expenses = Math.round(35000 + (i * 1200) + (Math.random() * 3000 - 1500));
+                const loans = 2500; // outstanding loan coverage share
+                
+                csvContent += `Apex_Logistics,${dateStr},${cash},${profit},${expenses},${loans}\n`;
+            }
+            
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "apex_logistics_template.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            document.getElementById('edit-record-id').value = '';
+            document.getElementById('bulk-upload-section').style.display = 'none';
+        }
+
+        function uploadDataFile() {
+            if (!selectedCompanyId) {
+                alert("Please select a company first.");
+                return;
+            }
+            const fileInput = document.getElementById('bulk-file-input');
+            const file = fileInput.files[0];
+            if (!file) {
+                alert("Please select a file to upload.");
+                return;
+            }
+
+            // Check 3MB file limit (3 * 1024 * 1024 bytes)
+            if (file.size > 3145728) {
+                alert("File size exceeds the 3MB limit. Please upload a smaller file.");
+                fileInput.value = "";
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            const statusSpan = document.getElementById('upload-status');
+            const uploadBtn = document.getElementById('upload-btn');
+            
+            uploadBtn.disabled = true;
+            statusSpan.innerText = "Uploading & Parsing...";
+            statusSpan.style.color = "var(--text-secondary)";
+
+            fetch(`/api/companies/${selectedCompanyId}/upload`, {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                uploadBtn.disabled = false;
+                if (data.error) {
+                    statusSpan.innerText = "Error: " + data.error;
+                    statusSpan.style.color = "var(--color-critical)";
+                } else {
+                    statusSpan.innerText = data.message;
+                    statusSpan.style.color = "var(--color-stable)";
+                    fileInput.value = ""; // clear input
+                    loadCompanyRecords(selectedCompanyId); // refresh table
+                }
+            })
+            .catch(err => {
+                uploadBtn.disabled = false;
+                statusSpan.innerText = "Upload failed: " + err.message;
+                statusSpan.style.color = "var(--color-critical)";
+            });
+        }
+
+        // ================= AI FORECAST & PLOTLY CHARTS =================
+        function drawSpeedometer(status, historicalCash, predictions) {
+            let scoreVal = 0;
+            let barColor = "#10b981"; // Safe Green by default
+            const labelEl = document.getElementById('speedometer-label');
+            
+            // Calculate a dynamic score based strictly on the actual forecast result status
+            if (status === 'CRITICAL') {
+                barColor = "#ef4444"; // Critical Red
+                if (predictions && predictions.length > 0) {
+                    // Find when insolvency occurs (first month where cash_flow <= 0)
+                    let firstZeroIdx = predictions.findIndex(val => val <= 0);
+                    if (firstZeroIdx === -1) firstZeroIdx = 6;
+                    // Earlier insolvency = higher score closer to 100% risk (ranges [75, 100])
+                    scoreVal = Math.round(100 - (firstZeroIdx / 11) * 25);
+                } else {
+                    scoreVal = 85; // Default for CRITICAL if no predictions array
+                }
+            } else if (status === 'WARNING') {
+                barColor = "#f59e0b"; // Warning Yellow/Orange
+                if (historicalCash && historicalCash.length > 0 && predictions && predictions.length > 0) {
+                    const lastCash = historicalCash[historicalCash.length - 1];
+                    const minCash = Math.min(...predictions);
+                    
+                    if (minCash < 15000) {
+                        // Liquidity warning: score is based on how close to zero they get compared to 15,000 threshold
+                        const ratio = Math.max(0, Math.min(1.0, minCash / 15000));
+                        scoreVal = Math.round(50 + (1 - ratio) * 25); // Ranges [50, 75]
+                    } else {
+                        // Decline warning: score is based on how much it drops below 40% decline
+                        const declineRatio = (lastCash - minCash) / lastCash;
+                        const factor = Math.max(0, Math.min(1.0, (declineRatio - 0.4) / 0.6));
+                        scoreVal = Math.round(50 + factor * 25); // Ranges [50, 75]
+                    }
+                } else {
+                    scoreVal = 62; // Default for WARNING if no predictions array
+                }
+            } else {
+                barColor = "#10b981"; // Stable Green
+                if (historicalCash && historicalCash.length > 0 && predictions && predictions.length > 0) {
+                    const lastCash = historicalCash[historicalCash.length - 1];
+                    const minCash = Math.min(...predictions);
+                    const declineRatio = (lastCash - minCash) / lastCash;
+                    
+                    if (declineRatio > 0) {
+                        // Mild decline: score goes up from 10 to 45 based on decline severity (up to 40%)
+                        const factor = Math.min(1.0, declineRatio / 0.4);
+                        scoreVal = Math.round(10 + factor * 35); // Ranges [10, 45]
+                    } else {
+                        // Growth or flat: keep score low (Safe)
+                        scoreVal = 10;
+                    }
+                } else {
+                    scoreVal = 20; // Default for STABLE if no predictions array
+                }
+            }
+
+            // Set labels and colors matching the pointer's sector zone
+            if (status === 'CRITICAL') {
+                labelEl.innerText = "Warning (Critical Risk)";
+                labelEl.style.color = "var(--color-critical)";
+            } else if (status === 'WARNING') {
+                labelEl.innerText = "Ok Little Risk";
+                labelEl.style.color = "var(--color-warning)";
+            } else {
+                labelEl.innerText = "Safe";
+                labelEl.style.color = "var(--color-stable)";
+            }
+
+            const data = [
+                {
+                    type: "indicator",
+                    mode: "gauge+number",
+                    value: scoreVal,
+                    number: { 
+                        suffix: "%",
+                        font: { size: 18, color: "#fcfaf2" }
+                    },
+                    gauge: {
+                        axis: { 
+                            range: [0, 100], 
+                            tickwidth: 1, 
+                            tickcolor: "#a4abb7", 
+                            tickvals: [0, 25, 50, 75, 100], 
+                            ticktext: ["0%", "25%", "50%", "75%", "100%"] 
+                        },
+                        bar: { color: barColor, thickness: 0.2 },
+                        bgcolor: "rgba(0,0,0,0)",
+                        borderwidth: 1,
+                        bordercolor: "rgba(212,175,55,0.2)",
+                        steps: [
+                            { range: [0, 50], color: "rgba(16, 185, 129, 0.35)" },   // Safe (Green) - first half
+                            { range: [50, 75], color: "rgba(245, 158, 11, 0.35)" },  // Ok Little Risk (Yellow) - middle
+                            { range: [75, 100], color: "rgba(239, 68, 68, 0.35)" }   // Warning (Red) - last half
+                        ]
+                    }
+                }
+            ];
+
+            const layout = {
+                width: 280,
+                height: 160,
+                margin: { t: 5, r: 25, l: 25, b: 5 },
+                paper_bgcolor: "rgba(0,0,0,0)",
+                font: { color: "#fcfaf2", family: "Outfit, sans-serif" }
+            };
+
+            const config = { responsive: true, displayModeBar: false };
+            Plotly.newPlot('speedometer-div', data, layout, config);
+        }
+
+        // ================= EDIT / RENAME COMPANY =================
+        function toggleInlineEdit(id, currentName) {
+            const tdName = document.getElementById(`comp-name-td-${id}`);
+            const tdActions = document.getElementById(`comp-actions-td-${id}`);
+            
+            tdName.innerHTML = `<input type="text" id="inline-edit-input-${id}" class="form-control" value="${currentName}" style="font-size: 0.8rem; padding: 0.2rem; width: 100%;" onclick="event.stopPropagation();" onkeydown="if(event.key==='Enter') saveInlineEdit(${id})">`;
+            
+            tdActions.innerHTML = `
+                <button class="btn btn-secondary" onclick="event.stopPropagation(); saveInlineEdit(${id})" style="padding: 0.3rem 0.6rem; font-size: 0.75rem; margin-right: 0.2rem;">Save</button>
+                <button class="btn btn-secondary" onclick="event.stopPropagation(); cancelInlineEdit(${id}, '${currentName.replace(/'/g, "\\'").replace(/"/g, "&quot;")}')" style="padding: 0.3rem 0.6rem; font-size: 0.75rem;">Cancel</button>
+            `;
+            
+            document.getElementById(`inline-edit-input-${id}`).focus();
+        }
+
+        function cancelInlineEdit(id, originalName) {
+            const tdName = document.getElementById(`comp-name-td-${id}`);
+            const tdActions = document.getElementById(`comp-actions-td-${id}`);
+            
+            tdName.innerHTML = originalName;
+            tdActions.innerHTML = `
+                <button class="btn btn-secondary" onclick="event.stopPropagation(); toggleInlineEdit(${id}, '${originalName.replace(/'/g, "\\'").replace(/"/g, "&quot;")}')" style="padding: 0.3rem 0.6rem; font-size: 0.75rem; margin-right: 0.4rem;">Edit</button>
+                <button class="btn btn-danger" onclick="event.stopPropagation(); deleteCompany(${id})" style="padding: 0.3rem 0.6rem; font-size: 0.75rem;">Delete</button>
+            `;
+        }
+
+        function saveInlineEdit(id) {
+            const newName = document.getElementById(`inline-edit-input-${id}`).value.trim();
+            if (!newName) {
+                alert('Company name cannot be empty');
+                return;
+            }
+
+            fetch(`/api/companies/${id}/rename`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ name: newName })
+            })
+            .then(res => {
+                if (!res.ok) {
+                    return res.json().then(e => { throw new Error(e.error); });
+                }
+                return res.json();
+            })
+            .then(data => {
+                loadCompanyList(true);
+                
+                if (selectedCompanyId == id) {
+                    document.getElementById('selected-comp-title').innerText = newName;
+                }
+            })
+            .catch(err => {
+                alert('Rename Failed: ' + err.message);
+            });
+        }
+
+        // ================= CURRENCY & GRAPH REFRESH HANDLERS =================
+        function changeCurrency(symbol) {
+            currentCurrencySymbol = symbol;
+            localStorage.setItem('selectedCurrency', symbol);
+            
+            // Sync the select dropdown element
+            const currencySelect = document.getElementById('currency-select');
+            if (currencySelect) {
+                currencySelect.value = symbol;
+            }
+
+            // Sync choice to database for this company (if manually updated in UI)
+            if (selectedCompanyId) {
+                const comp = companies.find(c => c.id == selectedCompanyId);
+                if (comp && comp.currency !== symbol) {
+                    comp.currency = symbol; // Update local array cache
+                    fetch(`/api/companies/${selectedCompanyId}/currency`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ currency: symbol })
+                    }).catch(err => console.error('Failed to save currency to DB:', err));
+                }
+            }
+
+            // Update form labels
+            const labels = {
+                'rec-cash': 'Cash Flow',
+                'rec-profit': 'Profit',
+                'rec-expense': 'Expenses',
+                'rec-loans': 'Loans'
+            };
+            for (const [id, name] of Object.entries(labels)) {
+                const el = document.querySelector(`label[for="${id}"]`);
+                if (el) el.innerText = `${name} (${symbol})`;
+            }
+
+            // Update wizard labels
+            const wizardProfitLabel = document.getElementById('wizard-profit-label');
+            if (wizardProfitLabel) {
+                wizardProfitLabel.innerText = `Total annual target profit (${symbol})`;
+            }
+            const wizardLoansLabel = document.getElementById('wizard-loans-label');
+            if (wizardLoansLabel) {
+                wizardLoansLabel.innerText = `Total outstanding loans to be covered (${symbol})`;
+            }
+
+            // Re-render records table
+            if (selectedCompanyId) {
+                loadRecords();
+            }
+
+            // Re-render forecast dashboard if we have cached forecast data
+            if (lastForecastData) {
+                renderDashboard(lastForecastData);
+            }
+        }
+
+        function refreshSpeedometer() {
+            if (!selectedCompanyId) return;
+            const btn = document.querySelector('#speedometer-card .refresh-btn');
+            if (btn) {
+                btn.classList.add('spinning');
+                setTimeout(() => btn.classList.remove('spinning'), 800);
+            }
+            runForecast(selectedCompanyId);
+        }
+
+        function refreshForecastChart() {
+            if (!selectedCompanyId) return;
+            const btn = document.querySelector('.chart-card .refresh-btn');
+            if (btn) {
+                btn.classList.add('spinning');
+                setTimeout(() => btn.classList.remove('spinning'), 800);
+            }
+            runForecast(selectedCompanyId);
+        }
+
+
+    </script>
+</body>
+</html>
+
